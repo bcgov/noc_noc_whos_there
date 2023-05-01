@@ -1,0 +1,108 @@
+---
+title: "10 closest Occupations in terms of skills"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+resource_files:
+- data/Skills_27_1_NOC2021_data.xlsx
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(dbscan)
+library(gt)
+
+skills_raw <- read_excel(here::here("data","Skills_27_1_NOC2021_data.xlsx"))%>%
+  pivot_wider(id_cols=contains("noc"), names_from = contains("skills"), values_from = contains("score"))%>%
+  clean_names()%>%
+  unite(NOC, noc2021, noc2021_title, sep = ": ")%>%
+  column_to_rownames(var="NOC")
+
+skills_2021 <- skills_raw%>%
+  scale()%>%
+  as.data.frame()
+skills_pca <- prcomp(skills_2021)
+first_five <- skills_pca[["x"]][,1:5]%>%
+  as.data.frame()
+```
+
+    ```{css}
+    .chart-shim {
+      overflow: auto;
+    }
+    ```
+
+
+Inputs {.sidebar}
+-------------------------------------
+
+* The table to the right gives the 10 closest occupations (columns) measured in terms of 35 skills (rows).
+* In each cell is the difference in skill from the selected occupation.
+* Skill differences are colour coded: yellow indicates more of that skill is required, whereas purple indicates you likely already have enough of that skill. 
+* E.g. Economists have enough math skills for any of the 10 closest occupations, but more skill in science would be required to become a meteorologist.
+
+
+```{r}
+selectInput(
+  "noc",
+  "Choose your current occupation:",
+  rownames(skills_2021),
+  selected = "41401: Economists and economic policy researchers and analysts",
+  multiple = FALSE,
+)
+
+q <- reactive({
+  first_five[rownames(first_five)==input$noc,]
+  }) 
+nn <- reactive({
+  kNN(first_five, k = 11, sort=TRUE,  query = q())
+})
+
+chosen_noc <- reactive({
+  skills_raw[rownames(first_five)==input$noc,]
+})
+
+ten_chosen <- reactive({
+  bind_rows(chosen_noc(), chosen_noc()[rep(1, 10), ])
+})  
+
+closest <- reactive({
+  skills_raw[tail(as.vector(nn()[["id"]]),n=11),]
+})
+
+difference <- reactive({
+  (closest()-ten_chosen())%>%
+  mutate(across(everything(), \(x) round(x, 2)))%>%
+  t()%>%
+  as.data.frame()%>%
+  rownames_to_column(var="Skill")%>%
+  tibble()%>%
+    select(-input$noc)
+})
+
+
+```
+ 
+Column
+-------------------------------------
+    
+### **`r renderUI({input$noc})`**
+    
+```{r}
+
+gt::render_gt({
+gt(difference())|>
+  data_color(
+    columns = -Skill,
+    palette = "viridis",
+    domain = range(difference()[,-1], finite = TRUE)
+  )%>%
+    tab_options(column_labels.font.size = 10,
+                table.font.size = 10)
+})
+```
