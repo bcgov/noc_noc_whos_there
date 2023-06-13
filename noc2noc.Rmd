@@ -7,6 +7,7 @@ output:
 runtime: shiny
 resource_files:
 - data/Skills_27_1_NOC2021_data.xlsx
+- data/skills.rds
 ---
 
 ```{r setup, include=FALSE}
@@ -16,12 +17,15 @@ library(readxl)
 library(janitor)
 library(dbscan)
 library(gt)
+library(here)
 
-skills_raw <- read_excel(here::here("data","Skills_27_1_NOC2021_data.xlsx"))%>%
-  pivot_wider(id_cols=contains("noc"), names_from = contains("skills"), values_from = contains("score"))%>%
-  clean_names()%>%
-  unite(NOC, noc2021, noc2021_title, sep = ": ")%>%
-  column_to_rownames(var="NOC")
+# skills_raw <- read_excel(here::here("data","Skills_27_1_NOC2021_data.xlsx"))%>%
+#   pivot_wider(id_cols=contains("noc"), names_from = contains("skills"), values_from = contains("score"))%>%
+#   clean_names()%>%
+#   unite(NOC, noc2021, noc2021_title, sep = ": ")%>%
+#   column_to_rownames(var="NOC")
+
+skills_raw <- read_rds(here("data","skills.rds"))
 
 skills_2021 <- skills_raw%>%
   scale()%>%
@@ -94,7 +98,6 @@ Column
 ### **`r renderUI({input$noc})`**
     
 ```{r}
-
 gt::render_gt({
 gt(difference())|>
   data_color(
