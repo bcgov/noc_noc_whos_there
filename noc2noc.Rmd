@@ -4,6 +4,7 @@ output:
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
+    source_code: "https://github.com/bcgov/noc_noc_whos_there"
 runtime: shiny
 resource_files:
 - data/Skills_27_1_NOC2021_data.xlsx
@@ -110,10 +111,7 @@ q <- reactive({
 
 nn <- reactive({
   temp <- dbscan::kNN(first_five(), k = 11, sort=TRUE,  query = q())
-  names <- rownames(first_five())[as.vector(temp[["id"]])]
-#  distance <- as.vector(temp[["dist"]])
-#  print(tibble(names=names, distance=distance))
-  names
+  rownames(first_five())[as.vector(temp[["id"]])]
 })
 
 chosen_noc <- reactive({
@@ -126,8 +124,7 @@ ten_chosen <- reactive({
 
 closest <- reactive({
   df <- skills_raw[rownames(skills_raw) %in% nn(), ]
- # print(nn())
-  df[nn(), ]
+  df[nn(), ] #orders the dataframe correctly
 })
 
 difference <- reactive({
@@ -155,8 +152,6 @@ gt(difference())|>
     method="bin",
     bins=c(-10, input$low, input$high, 10),
     palette = c("blue","white","red")
-    # palette = "viridis",
-    # domain = range(difference()[,-1], finite = TRUE)
   )%>%
     tab_options(column_labels.font.size = 10,
                 table.font.size = 10)
