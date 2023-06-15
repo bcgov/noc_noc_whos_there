@@ -125,12 +125,12 @@ closest <- reactive({
 })
 
 difference <- reactive({
-  temp <- (closest()-eleven_chosen())%>%
-  mutate(across(everything(), \(x) round(x, 2)))%>%
-  t()%>%
+  (closest()-eleven_chosen())%>% #the difference in skills
+  mutate(across(everything(), \(x) round(x, 2)))%>% #rounded to the hundredth
+  t()%>% #transposed
   as.data.frame()%>%
-  rownames_to_column(var="Skill")%>%
-    select(-input$noc)
+  rownames_to_column(var="Skill")%>% 
+    select(-input$noc) #get rid of own occupation
 })
 
 
