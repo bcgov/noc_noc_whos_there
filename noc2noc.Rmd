@@ -7,8 +7,6 @@ output:
     source_code: "https://github.com/bcgov/noc_noc_whos_there"
 runtime: shiny
 resource_files:
-- data/Skills_27_1_NOC2021_data.xlsx
-- data/skills.rds
 - data/skills_original.xlsx
 ---
 
@@ -86,49 +84,48 @@ dataset <- reactive({
     as.data.frame()
   }else{
     chosen_skill_df <- skills_raw[rownames(skills_raw)==input$noc,]%>% 
-      slice(rep(1:n(), each = nrow(skills_raw)))
-    lesser_skill <- skills_raw<(chosen_skill_df+1)
-    logical_vec <- apply(lesser_skill, MARGIN = 1, all)
-    
-    skills_raw[logical_vec,]%>%
+      slice(rep(1:n(), each = nrow(skills_raw))) #creates a dataframe of same dimension as skills_raw by replicating chosen NOC  
+    lesser_skill <- skills_raw<(chosen_skill_df+1) #a logical matrix, containing TRUE if skill less than chosen NOC skill plus 1. 
+    logical_vec <- apply(lesser_skill, MARGIN = 1, all) #test that row has lower skill than chosen NOC for all 35 skills
+    skills_raw[logical_vec,]%>% #keep only the NOCs where skill is lower than chosen NOC plus one for all 35 skills.
       scale()%>%
       as.data.frame()
    } 
 })
 
 skills_pca <- reactive({
-  prcomp(dataset())
+  prcomp(dataset()) #principal component analysis
 })
 
 first_five <- reactive({
-  skills_pca()[["x"]][,1:5]%>%
+  skills_pca()[["x"]][,1:5]%>% #keep only the first 5 principal components.
   as.data.frame()
 })
 
 q <- reactive({
-  first_five()[rownames(first_five())==input$noc,]
+  first_five()[rownames(first_five())==input$noc,] #the location of the chosen NOC in 5D space.
 }) 
 
 nn <- reactive({
-  temp <- dbscan::kNN(first_five(), k = 11, sort=TRUE,  query = q())
-  rownames(first_five())[as.vector(temp[["id"]])]
+  temp <- dbscan::kNN(first_five(), k = 11, sort=TRUE,  query = q()) #11 nearest neighbours to query (own NOC included)
+  rownames(first_five())[as.vector(temp[["id"]])] #the names of the closest occupations
 })
 
 chosen_noc <- reactive({
-  skills_raw[rownames(skills_raw)==input$noc,]
+  skills_raw[rownames(skills_raw)==input$noc,] #the skill profile of the chosen NOC (35D)
 })
 
-ten_chosen <- reactive({
-  bind_rows(chosen_noc(), chosen_noc()[rep(1, 10), ])
+eleven_chosen <- reactive({
+  chosen_noc()[rep(1, 11), ] #replicate the skill profile of the chosen NOC
 })  
 
 closest <- reactive({
-  df <- skills_raw[rownames(skills_raw) %in% nn(), ]
+  df <- skills_raw[rownames(skills_raw) %in% nn(), ] #the nearest neighbour NOCs to the chosen NOC
   df[nn(), ] #orders the dataframe correctly
 })
 
 difference <- reactive({
-  temp <- (closest()-ten_chosen())%>%
+  temp <- (closest()-eleven_chosen())%>%
   mutate(across(everything(), \(x) round(x, 2)))%>%
   t()%>%
   as.data.frame()%>%
