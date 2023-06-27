@@ -56,7 +56,7 @@ Inputs {.sidebar}
 ```{r}
 selectInput(
   "noc",
-  "Choose your current occupation:",
+  "Choose your current occupation by either scrolling through the list OR hit backspace and then search by keyword or NOC code:",
   rownames(skills_raw),
   selected = "41401: Economists and economic policy researchers and analysts",
   multiple = FALSE
@@ -145,7 +145,7 @@ difference <- reactive({
   mutate(Skill=str_to_title(str_replace_all(Skill, "_"," ")))%>%  
   select(-input$noc)%>% #get rid of own occupation
   mutate(
-        Skill = map(Skill, skill_link),
+        Skill = map(Skill, skill_link),#add hyperlinks to skills
         Skill = map(Skill, ~ gt::html(as.character(.x))))
 })
 
@@ -168,7 +168,7 @@ gt(difference())|>
  )%>%
     tab_options(column_labels.font.size = 10,
                 table.font.size = 10)%>%
-    cols_label_with(columns=-1, fn = ~ noc_link(.x))
+    cols_label_with(columns=-1, fn = ~ noc_link(.x))#add hyperlinks to nocs
 })
 ```
 
