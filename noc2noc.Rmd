@@ -16,8 +16,23 @@ library(tidyverse)
 library(readxl)
 library(janitor)
 library(gt)
+library(gtExtras)
 library(here)
+#functions-----------------
+noc_link <- function(x){
+  clean_x <- x%>%
+    str_replace_all(":","")%>%
+    str_replace_all(" ","+")
+  gt_hyperlink(url=paste0("https://google.com/search?btnI=&q=statistique+canada+noc+2021+", clean_x, "&btnI=I"), text=x)
+}
 
+skill_link <- function(x){
+  clean_x <- x%>%
+    str_replace_all(" ","+")
+  link <- paste0("https://www.google.com/search?q=onetonline.org+find+descriptor+result+", clean_x, "&btnI=I")
+  htmltools::a(href = link, x)
+}
+#read in the data----------------------
 skills_raw <- read_excel(here::here("data","skills_original.xlsx"),
                              col_types = c("text","text","text","numeric"))%>%
   mutate(noc2021=str_pad(noc2021, width=5, side="left", pad="0"))%>%
@@ -33,49 +48,46 @@ skills_raw <- read_excel(here::here("data","skills_original.xlsx"),
     }
     ```
 
+10 closest occupations in terms of skills:
+=====================================  
 
 Inputs {.sidebar}
 -------------------------------------
-
-* The table to the right gives the 10 closest occupations (columns) measured in terms of 35 skills (rows).
-* In each cell is the difference in skill from the selected occupation.
-* Red indicates more skill needed, white is similar in skill, blue you likely already have enough of that skill.
-* You can choose between an unrestricted search (all other occupations considered), or a restricted search (no skill upgrade greater than 1 required).
-
-
 ```{r}
 selectInput(
   "noc",
   "Choose your current occupation:",
   rownames(skills_raw),
   selected = "41401: Economists and economic policy researchers and analysts",
-  multiple = FALSE,
+  multiple = FALSE
 )
+```
 
+* The table to the right gives the 10 closest occupations (columns) to the chosen occupation in terms of 35 skills (rows).
+* In each cell is the difference in skill required: positive values indicate a skill surplus (blue), negative indicates a skill deficit (red).
+
+* You can choose between an unrestricted search (all other occupations considered), or a restricted search (no skill deficits greater than one allowed).
+
+```{r}
 radioButtons(
   "restrict",
-  "Should the search be restricted",
+  "Should the search be restricted?",
   choices = c("yes","no"),
   selected = "no"
 )
+```
 
-numericInput(
-  "low",
-  "Difference less than this blue",
-  -1,
-  min = -5,
-  max = 0,
-  step = .1
-)
+* You can also control the breaks used for the colour scheme. 
 
-numericInput(
-  "high",
-  "Difference bigger than this red",
-  1,
-  min = 0,
-  max = 5,
-  step = .1
-)
+```{r}
+sliderInput(
+    inputId = "range",
+    label = "Skill differences in this range have white background",
+    min = -5,
+    max = 5,
+    value = c(-1,1),
+    step = .1
+  )
 
 dataset <- reactive({
   if(input$restrict=="no"){
@@ -107,7 +119,7 @@ q <- reactive({
 }) 
 
 nn <- reactive({
-  temp <- dbscan::kNN(first_five(), k = 11, sort=TRUE,  query = q()) #11 nearest neighbours to query (own NOC included)
+  temp <- dbscan::kNN(first_five(), k = 11, sort=TRUE,  query = q()) #11 nearest neighbors to query (own NOC included)
   rownames(first_five())[as.vector(temp[["id"]])] #the names of the closest occupations
 })
 
@@ -125,12 +137,16 @@ closest <- reactive({
 })
 
 difference <- reactive({
-  (closest()-eleven_chosen())%>% #the difference in skills
+  (-(closest()-eleven_chosen()))%>% #the difference in skills
   mutate(across(everything(), \(x) round(x, 2)))%>% #rounded to the hundredth
   t()%>% #transposed
   as.data.frame()%>%
   rownames_to_column(var="Skill")%>% 
-    select(-input$noc) #get rid of own occupation
+  mutate(Skill=str_to_title(str_replace_all(Skill, "_"," ")))%>%  
+  select(-input$noc)%>% #get rid of own occupation
+  mutate(
+        Skill = map(Skill, skill_link),
+        Skill = map(Skill, ~ gt::html(as.character(.x))))
 })
 
 
@@ -147,10 +163,34 @@ gt(difference())|>
   data_color(
     columns = -Skill,
     method="bin",
-    bins=c(-10, input$low, input$high, 10),
-    palette = c("blue","white","red")
-  )%>%
+    bins=c(-10, input$range[1], input$range[2], 10),
+    palette = c("red","white","blue")
+ )%>%
     tab_options(column_labels.font.size = 10,
-                table.font.size = 10)
+                table.font.size = 10)%>%
+    cols_label_with(columns=-1, fn = ~ noc_link(.x))
 })
 ```
+
+FAQs:
+=====================================  
+
+### Why are the ten closest occupations not necessarily in the same cluster as the chosen occupation?
+
+* In a related project we cluster occupations on the basis of their skill profile: this is done via AGNES, an agglomerative hierarchical clustering algorithm.
+* In **both** the clustering exercise and in this application, proximity is based on euclidean distance using the first 5 principal components of the 35D data.
+* The 10 closest occupations will not necessarily share the same cluster membership: if an occupation is close to the edge of its cluster then it is likely that occupations from other clusters may in fact be closer than occupations that are in the same cluster. 
+
+### Why am I given the option of a restricted vs. unrestricted search?
+
+* Some users may wish to make a quick transition to a new occupation: with a restricted search no major skill upgrades are required.
+* Other users may have a longer timeline where they can upgrade skills before changing occupations: with an unrestricted search the closest occupations may require a substantial skill upgrade. 
+
+### Why am I given the option to control the colouring of the cells?
+
+* It allows you control how big of a difference in skill is required to be highlighted by colour: e.g.
+  - If you set the range -5 to 5 all the cells will be white.
+  - If you set the range -.1 to .1 almost all the cells will **not** be white.
+
+
+
