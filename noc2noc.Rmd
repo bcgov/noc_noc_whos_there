@@ -56,7 +56,7 @@ Inputs {.sidebar}
 ```{r}
 selectInput(
   "noc",
-  "Choose your current occupation by either scrolling through the list OR hit backspace and then search by keyword or NOC code:",
+  "Choose your current occupation by either scrolling through the list below OR click in the box, hit backspace and then search by keyword or NOC code:",
   rownames(skills_raw),
   selected = "41401: Economists and economic policy researchers and analysts",
   multiple = FALSE
