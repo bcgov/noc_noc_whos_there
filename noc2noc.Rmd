@@ -23,7 +23,7 @@ noc_link <- function(x){
   clean_x <- x%>%
     str_replace_all(":","")%>%
     str_replace_all(" ","+")
-  gt_hyperlink(url=paste0("https://google.com/search?btnI=&q=statistique+canada+noc+2021+", clean_x, "&btnI=I"), text=x)
+  gt_hyperlink(url=paste0("https://google.com/search?btnI=&q=statistique+canada+noc+2021+", clean_x), text=x)
 }
 
 skill_link <- function(x){
@@ -99,7 +99,7 @@ dataset <- reactive({
       slice(rep(1:n(), each = nrow(skills_raw))) #creates a dataframe of same dimension as skills_raw by replicating chosen NOC  
     lesser_skill <- skills_raw<(chosen_skill_df+1) #a logical matrix, containing TRUE if skill less than chosen NOC skill plus 1. 
     logical_vec <- apply(lesser_skill, MARGIN = 1, all) #test that row has lower skill than chosen NOC for all 35 skills
-    skills_raw[logical_vec,]%>% #keep only the NOCs where skill is lower than chosen NOC plus one for all 35 skills.
+    skills_raw[logical_vec,]%>% #keep only the NOCs where skill is lower than chosen NOC skill+1 for all 35 skills.
       scale()%>%
       as.data.frame()
    } 
@@ -137,7 +137,7 @@ closest <- reactive({
 })
 
 difference <- reactive({
-  (-(closest()-eleven_chosen()))%>% #the difference in skills
+  (-(closest()-eleven_chosen()))%>% #the difference in skills (note double negative because column names inherited from closest())
   mutate(across(everything(), \(x) round(x, 2)))%>% #rounded to the hundredth
   t()%>% #transposed
   as.data.frame()%>%
@@ -163,7 +163,7 @@ gt(difference())|>
   data_color(
     columns = -Skill,
     method="bin",
-    bins=c(-10, input$range[1], input$range[2], 10),
+    bins=c(-10, input$range[1]-.01, input$range[2]+.01, 10),
     palette = c("red","white","blue")
  )%>%
     tab_options(column_labels.font.size = 10,
